@@ -1,0 +1,411 @@
+<!-- Authors: Sydney Taylor & Kenton Carrier -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sydney & Kenton's Matching Game</title>
+
+    <!-- Bulma Style Framwork requirements -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css"
+    />
+
+    <style>
+      html {
+        background-color: #a0b9c6;
+      }
+    </style>
+
+    <script type="text/javascript">
+      const sizeMin = 4;
+      const sizeMax = 10;
+
+      const colors = [
+        "maroon",
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "purple",
+        "lime",
+        "blue",
+        "gray",
+        "white"
+      ];
+
+      //Global var for the first selected tile
+      var toMatch = null;
+      var tiles = [];
+      var tilesToReset = []
+
+      // Returns true if between param is between min and max parameters and is even
+      // Otherwise, it returns an error message.
+      function evenNumberBetween(min, max, between) {
+	// If number is too small, return appropriate message
+	// Else if number is too large return appropriate message
+	// Else if number is not even, return appropriate message
+	// Else return true
+        if (size < sizeMin) {
+          return "Please choose a number greater than or equal to " + sizeMin;
+        } else if (size > sizeMax) {
+          return "Please choose a number less than or equal to " + sizeMax;
+        } else if (size % 2 != 0) {
+          return "Please choose an even number";
+        } else {
+          return true;
+        }
+      }
+
+      // Generate gameboard in array of size NxN where N is the param size
+      function generateGameBoard(size) {
+        gameBoard = [];
+        $gameboard.innerHTML = ""
+	// Create a tile for each position in the array and assign each tile a random number and color
+        for (i = size ** 2; i > 0; i -= 2) {
+          randColor = colors[Math.floor(Math.random() * colors.length)];
+          randNum = Math.ceil(Math.random() * 4);
+          newTile = {
+            color: randColor,
+            label: randNum
+          };
+          gameBoard.push(newTile);
+          gameBoard.push(newTile);
+        }
+        //Shuffle the board
+        gameBoard.sort(() => Math.random() - 0.5);
+
+        var tilesHTML = ""
+        for (i = 0; i < size; i++) {
+          tilesHTML += "<tr>";
+          for (j = 0; j < size; j++) {
+            tilesHTML += '<td class="has-text-centered is-size-4 has-background-grey-light" onclick="tileSelected(' + i + ", " + j + ')" id="row' + i + "col" + j + '"> --- </td>'
+          }
+          tilesHTML += "</tr>"
+        }
+
+        $gameboard.innerHTML += tilesHTML
+
+        return gameBoard;
+      }
+
+      // Flip tile
+      function flipTile(row, col) {
+        var selection = tiles[row * size + col];
+        $tile = document.getElementById("row" + row + "col" + col);
+	// If tile's color is grey, flip the tile
+	// Change the color and the label to the one's assigned to the tile in generateGameboard
+	// Else change the color to grey and label to ---
+        if ($tile.classList.contains("has-background-grey-light")) {
+          $tile.innerHTML = selection.label;
+          $tile.classList.remove("has-background-grey-light");
+          $tile.style.backgroundColor = selection.color;
+        } else {
+          $tile.innerHTML = " --- ";
+          $tile.classList.add("has-background-grey-light");
+        }
+      }
+
+      // Check if the first tile matches the second
+      function checkMatch(firstSelect, secondSelect) {
+	// If the first tile's color and number match the second tile's, return true
+	// Else return false
+        if (
+          firstSelect.color == secondSelect.color &&
+          firstSelect.label == secondSelect.label
+        ) {
+          message = currentPlayer + " found a match! Select another tile.";
+          $messageBox.innerHTML = message;
+	  // If the current player's name is the first player's name, increase the first player's score
+          // Else increase the second player's score
+	  if (currentPlayer == name1) {
+            score1++;
+            $player1Score.innerHTML = score1;
+          } else {
+            score2++
+            $player2Score.innerHTML = score2;
+          }
+          winGame()
+          return true
+        } else {
+          message = "Sorry " + currentPlayer + ", " + firstSelect.color + " " + firstSelect.label + " and " + secondSelect.color + " " + secondSelect.label + " do not match."
+          $messageBox.innerHTML = message
+          return false
+        }
+      }
+
+      // End turn
+      function endTurn() {
+        disableUnturnedTiles()
+	// If current player's name is player one's name,
+	// set current player's name to player two's name
+	// Else set current player's name to player one's name and reset tiles
+        if (currentPlayer == name1) currentPlayer = name2
+        else currentPlayer = name1
+        tilesToReset.forEach(tile => {
+          flipTile(tile.row, tile.col)
+          disableTile(tile.row, tile.col)
+        })
+        toMatch = null;
+        message = currentPlayer + ", it's your turn. Select a tile."
+        $messageBox.innerHTML = message
+        $endTurn.classList.add("is-hidden")
+        tilesToReset = []
+      }
+
+      // Disable tile
+      function disableTile(row, col) {
+        var selection = tiles[row * size + col];
+        $tile = document.getElementById("row" + row + "col" + col);
+
+	// If onclick is undefined, find the tile that has been selected
+	// Else set onclick to undefined
+        if ($tile.onclick == undefined) {
+          $tile.onclick = function() {
+            tileSelected(row, col)
+          }
+        } else {
+          $tile.onclick = undefined
+        }
+      }
+
+      // Disable unturned tiles
+      function disableUnturnedTiles() {
+        tiles.forEach((tile, index) => {
+          var row = Math.floor(index / size)
+          var col = index % size
+          var $tile = document.getElementById("row" + row + "col" + col)
+          // If tile's value is ---, disable the tile
+	  if ($tile.innerHTML == " --- ") {
+            disableTile(row, col)
+          }
+        })
+      }
+
+      // Find the tile that has been selected in the array
+      function tileSelected(row, col) {
+        var selection = tiles[row * size + col];
+        flipTile(row, col)
+        disableTile(row, col)
+	// If toMatch is null, check to see if there is a match between two tiles
+	// Else prompt the player to choose their second tile
+        if (toMatch != null) {
+	  // If there is not a match, reset the tiles
+	  // Else set toMatch to null
+          if (!checkMatch(toMatch.tile, selection)){
+            tilesToReset.push({
+              row: toMatch.row,
+              col: toMatch.col
+            },{
+              row: row,
+              col: col
+            })
+            $endTurn.classList.remove("is-hidden")
+            disableUnturnedTiles()
+          } else {
+            toMatch = null
+          }
+        } else {
+          message =
+            currentPlayer +
+            " selected " +
+            selection.color +
+            " " +
+            selection.label +
+            ". Make your second selection.";
+          $messageBox.innerHTML = message;
+          toMatch = {
+            row: row,
+            col: col,
+            tile: tiles[row * size + col]
+          };
+        }
+      }
+
+      // Set up game by setting both scores to 0 and telling the current player it is their turn
+      // Then generate the game board
+      function setupGame() {
+        currentPlayer = name1;
+
+        message = "Welcome! It's " + currentPlayer + "'s turn";
+        $messageBox.innerHTML = message;
+
+        score1 = 0;
+        score2 = 0;
+        $player1Score.innerHTML = score1;
+        $player2Score.innerHTML = score2;
+
+        tiles = generateGameBoard(size);
+      }
+
+      // Reset the game
+      function resetGame() {
+	// Ask the user if they want to use the same game settings for the new game
+        do {
+          var sameSettings = prompt("Do you want to use the same settings? (Yes/No)")
+        } while (sameSettings.toLowerCase() != "yes" && sameSettings.toLowerCase() != "no")
+
+        $concedeGame.classList.remove("is-hidden")
+        $resetGame.classList.add("is-hidden")
+
+	// If the user wants to use the same settings, set up the game
+	// Else is the user does not want to use the same settings, reload the page
+        if (sameSettings.toLowerCase() == "yes") {
+          setupGame()
+        } else if (sameSettings.toLowerCase() == "no") {
+          window.location.reload(true)
+        }
+      }
+
+      // Win game
+      function winGame(concede = false) {
+	// If a player conceded the game, flip the tiles and determine which player won
+	// Else if the game is played through, compare scores to determine which player won
+        if (concede == true) {
+	  // If the current player's name is player one's name, player two wins
+	  // Else if the current player's name is player two's name, player one wins
+          if (currentPlayer == name1) $messageBox.innerHTML = name1 + " concedes, " + name2 + " wins!"
+          else if (currentPlayer == name2) $messageBox.innerHTML = name2 + " concedes, " + name1 + " wins!"
+          alert($messageBox.innerHTML)
+          tiles.forEach((tile, index) => {
+            var row = Math.floor(index / size)
+            var col = index % size
+            var $tile = document.getElementById("row" + row + "col" + col)
+	    // If the tile's value is ---, flip the tile
+            if ($tile.innerHTML == " --- ") {
+              flipTile(row, col)
+            }
+          })
+        } else if (score1 + score2 == (size**2)/2) {
+	  // If player one's score is greater than player's two's score, player one wins
+	  // Else if player two's score is greater than player's one's score, player two wins
+          // Else if the player's scores are equal, the game is a tie
+	  // Else return
+	  if (score1 > score2) $messageBox.innerHTML = name1 + " wins!"
+          else if (score2 > score1) $messageBox.innerHTML = name2 + " wins!"
+          else if (score1 == score2) $messageBox.innerHTML = "Tie game!"
+          alert($messageBox.innerHTML)
+        } else return
+        $concedeGame.classList.add("is-hidden")
+        $resetGame.classList.remove("is-hidden")
+        $endTurn.classList.add("is-hidden")
+      }
+    </script>
+  </head>
+  <body>
+    <div class="section">
+      <div class="level">
+        <div class="level-item">
+          <p class="title has-text-white">Kenton & Sydney's Match Game</p>
+        </div>
+      </div>
+      <br />
+      <div class="tile is-ancestor">
+        <div class="tile is-vertical">
+          <div class="tile">
+            <div class="tile is-vertical is-parent is-4">
+              <div class="tile is-child box is-primary">
+                <p class="title" id="player1Name">
+                </p>
+
+                <p>
+                  Score:
+                  <div id="player1Score">
+                  </div>
+                </p>
+              </div>
+
+              <div class="tile is-child box is-primary">
+                <p class="title" id="player2Name">
+                </p>
+                <p>
+                  Score:
+                  <div id="player2Score">
+                  </div>
+                </p>
+              </div>
+            </div>
+            <div class="tile is-parent">
+              <div class="tile box is-child">
+                <table class="table is-fullwidth is-bordered">
+                  <tbody id="gameboard">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="tile">
+            <div class="tile is-parent">
+              <div class="tile box is-child" id="messageBox"></div>
+            </div>
+            <div class="tile is-parent is-2 is-hidden" onclick="endTurn()" id="endTurn">
+              <div class="tile box is-child">
+                <p class="has-weight-semibold">End Turn</p>
+              </div>
+            </div>
+            <div class="tile is-parent is-2 is-hidden" onclick="resetGame()" id="resetGame">
+              <div class="tile box is-child">
+                <p class="has-weight-semibold">Reset Game</p>
+              </div>
+            </div>
+          </div>
+          <div class="tile">
+            <div class="tile is-parent">
+              <div class="tile box is-child is-2" id="concedeGame" onclick="winGame(true)">
+                <p class="has-weight-semibold">Concede Game</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script language="JavaScript">
+      // Document Elements
+      $messageBox = document.getElementById("messageBox");
+      $gameboard = document.getElementById("gameboard");
+      $player1Score = document.getElementById("player1Score")
+      $player2Score = document.getElementById("player2Score")
+      $player1Name = document.getElementById("player1Name")
+      $player2Name = document.getElementById("player2Name")
+      $endTurn = document.getElementById("endTurn")
+      $resetGame = document.getElementById("resetGame")
+      $concedeGame = document.getElementById("concedeGame")
+
+      var currentPlayer = ""
+      var score1 = 0
+      var score2 = 0
+      var message = ''
+
+      // Game Initialization
+      // Ask user for player one's name
+      var name1 = prompt("What is player one's name?", "");
+      $player1Name.innerHTML = name1
+      // Ask user for player two's name and verify that it is not the same as player one's name
+      do {
+        var name2 = prompt("What is player two's name?", "");
+        if (name2 == name1) {
+          alert("Please choose a different name than player 1: " + name1);
+          name2 = null;
+        }
+      } while (name2 == null);
+      $player2Name.innerHTML = name2
+
+      // Ask user for a number to generate the game board and check that it is valid
+      do {
+        if (typeof checkSize != "undefined") alert(checkSize);
+        var size = prompt(
+          "Choose an even number between " +
+            sizeMin +
+            " and " +
+            sizeMax +
+            " to generate the game board.",
+          ""
+        );
+        checkSize = evenNumberBetween(sizeMin, sizeMax, size);
+      } while (checkSize !== true);
+
+      setupGame()
+
+    </script>
+  </body>
+</html>
